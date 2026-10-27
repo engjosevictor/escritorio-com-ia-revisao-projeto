@@ -24,6 +24,7 @@ import argparse
 
 try:
     import ezdxf
+    from ezdxf import bbox as ezbbox
     from ezdxf.addons.drawing import RenderContext, Frontend
     from ezdxf.addons.drawing.config import Configuration, BackgroundPolicy, ColorPolicy
     from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
@@ -48,9 +49,22 @@ CORES = {
 }
 
 
-def renderizar_base(doc, largura_pol=16.8, altura_pol=11.9):
+def tamanho_pagina_pol(msp, fator_para_cm):
+    """Figura do matplotlib tem que nascer do tamanho real da folha (em polegadas),
+    senao o PDF sai com a pagina inteira encolhida pra um tamanho arbitrario e todo
+    texto fino (tabela, cota) fica pequeno demais pra aparecer no render."""
+    caixa = ezbbox.extents(msp, fast=True)
+    largura_bruta = caixa.extmax.x - caixa.extmin.x
+    altura_bruta = caixa.extmax.y - caixa.extmin.y
+    largura_cm = largura_bruta * fator_para_cm
+    altura_cm = altura_bruta * fator_para_cm
+    return largura_cm / 2.54, altura_cm / 2.54
+
+
+def renderizar_base(doc, fator_para_cm):
     msp = doc.modelspace()
-    fig = plt.figure(figsize=(largura_pol, altura_pol))
+    largura_pol, altura_pol = tamanho_pagina_pol(msp, fator_para_cm)
+    fig = plt.figure(figsize=(largura_pol, altura_pol), dpi=150)
     ax = fig.add_axes([0, 0, 1, 1])
     ctx = RenderContext(doc)
     cfg = Configuration(
@@ -58,7 +72,10 @@ def renderizar_base(doc, largura_pol=16.8, altura_pol=11.9):
         color_policy=ColorPolicy.MONOCHROME_LIGHT_BG,
         min_lineweight=0.25,
     )
-    backend = MatplotlibBackend(ax)
+    # adjust_figure=False: senao o backend reescreve o tamanho da figura sozinho no
+    # finalize() com um tamanho padrao do matplotlib, ignorando o figsize real da folha
+    # setado acima (foi por isso que o PDF saia bem menor e o texto fino sumia)
+    backend = MatplotlibBackend(ax, adjust_figure=False)
     Frontend(ctx, backend, config=cfg).draw_layout(msp, finalize=True)
     return fig, ax
 
@@ -68,12 +85,16 @@ def main():
     ap.add_argument("dxf", help="caminho do arquivo DXF")
     ap.add_argument("achados", help="JSON com a lista de achados (categoria, bbox, descricao)")
     ap.add_argument("--out", required=True, help="PDF de saida, marcado")
+    ap.add_argument("--fator-cm", type=float, default=1.0,
+                     help="fator que converte unidade bruta do DXF pra centimetro real "
+                          "de papel (o mesmo 'fator_para_cm' que analisar_dxf.py calibrou "
+                          "na Fase 0, pelo tamanho real da folha)")
     args = ap.parse_args()
 
     doc = ezdxf.readfile(args.dxf)
     achados = json.load(open(args.achados, encoding="utf-8"))
 
-    fig, ax = renderizar_base(doc)
+    fig, ax = renderizar_base(doc, args.fator_cm)
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
     w_in, h_in = fig.get_size_inches()
 
@@ -106,6 +127,10 @@ def main():
         annot = page.add_highlight_annot(rect)
         annot.set_colors(stroke=cor)
         annot.set_info(content=a.get("descricao", ""), title=categoria)
+        # opacidade baixa: varios achados proximos (ex. 14 textos invadindo o mesmo
+        # carimbo) empilham a marca-texto e, em opacidade cheia, viram um borrao solido
+        # que esconde o proprio desenho que deveriam apontar
+        annot.set_opacity(0.35)
         annot.update()
         contagem[categoria] = contagem.get(categoria, 0) + 1
 

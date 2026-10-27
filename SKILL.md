@@ -107,15 +107,19 @@ o problema.
 1. Montar uma lista de achados em JSON, um item por achado:
    `{"categoria": "legibilidade|sobreposicao|invasao_carimbo|fechamento_cota", "bbox": [x0,y0,x1,y1], "descricao": "texto explicando o problema"}`.
    O `bbox` usa as **mesmas coordenadas brutas do DXF** (não precisa converter nada, o
-   script cuida da calibração e do mapeamento pro PDF)
-2. Rodar:
+   script cuida do mapeamento pro PDF)
+2. Rodar, passando o `fator_para_cm` que a Fase 0 já calibrou (`calibracao_unidade` no JSON
+   do `analisar_dxf.py`) — sem isso a página do PDF nasce num tamanho arbitrário e todo
+   texto fino (tabela, cota, nota) fica pequeno demais pra aparecer:
    ```
-   python scripts/gerar_pdf_marcado.py "prancha.dxf" achados.json --out "prancha_revisada.pdf"
+   python scripts/gerar_pdf_marcado.py "prancha.dxf" achados.json --fator-cm 1 --out "prancha_revisada.pdf"
    ```
-3. O script renderiza a prancha em preto sobre fundo branco (igual sai impresso — não é o
-   tema escuro do CAD) e sobrepõe o marca-texto de cada achado, com cor por categoria
-   (amarelo = legibilidade, vermelho = sobreposição, laranja = invasão de carimbo, azul =
-   fechamento de cota) e o comentário anexado como nota clicável no PDF
+3. O script renderiza a prancha em preto sobre fundo branco, no tamanho real da folha
+   (igual sai impresso — não é o tema escuro do CAD, nem um tamanho reduzido), e sobrepõe
+   o marca-texto de cada achado em opacidade baixa (pra não empilhar virando um borrão
+   sólido quando vários achados ficam próximos), com cor por categoria (amarelo =
+   legibilidade, vermelho = sobreposição, laranja = invasão de carimbo, azul = fechamento
+   de cota) e o comentário anexado como nota clicável no PDF
 4. Requer `matplotlib` e `pymupdf`, além do `ezdxf` já usado na Fase 0 — perguntar antes
    de instalar o que faltar
 5. Entregar o caminho completo do PDF gerado, e avisar que cada marcação tem um
