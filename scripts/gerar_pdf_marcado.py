@@ -53,7 +53,11 @@ def renderizar_base(doc, largura_pol=16.8, altura_pol=11.9):
     fig = plt.figure(figsize=(largura_pol, altura_pol))
     ax = fig.add_axes([0, 0, 1, 1])
     ctx = RenderContext(doc)
-    cfg = Configuration(background_policy=BackgroundPolicy.WHITE, color_policy=ColorPolicy.MONOCHROME_LIGHT_BG)
+    cfg = Configuration(
+        background_policy=BackgroundPolicy.WHITE,
+        color_policy=ColorPolicy.MONOCHROME_LIGHT_BG,
+        min_lineweight=0.25,
+    )
     backend = MatplotlibBackend(ax)
     Frontend(ctx, backend, config=cfg).draw_layout(msp, finalize=True)
     return fig, ax
